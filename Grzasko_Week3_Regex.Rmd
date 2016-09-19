@@ -1,0 +1,226 @@
+---
+title: 'Week 3 Homework:  Regular Expressions in R'
+author: "Aaron Grzasko"
+date: "September 18, 2016"
+output: 
+    html_document:
+        theme: cerulean
+        highlight: pygments
+---
+
+---
+
+## Assignment Overview
+
+The purpose of this assignment is to become familiar with using regular expressions in the R environment.  The assignment also builds foundational skills required for more advanced work involving unstructured text data.  
+
+## References  
+  
+The problems and background material for the homework are from chapter eight of the following, assigned textbook:   
+
+Munzert, Simon et al. "Chapter 8: Regular Expressions and Essential String Functions ." *Automated Data Collection with R: a Practical Guide to Web Scraping and Text Mining*, 1st ed., John Wiley & Sons Ltd., Chichester, UK, 2015, pp. 196-218.
+
+The data required for problem three were copied from an R file on the textbook's companion website:  
+<http://www.r-datacollection.com/materials/ch-8-regex/ch-8-regex.r>  
+  
+The data for problem nine were also retrieved from the companion website, using a separate link:  
+<http://www.r-datacollection.com/materials/regex/code_exercise.txt>  
+
+
+## Libraries
+The only R package utilized in  this assignment is the stringr package.  
+```{r lib_load}
+# uncomment script below if stringr package not already installed
+# install.packages("stringr")
+  
+library(stringr)
+```
+
+## Problem 3  
+  
+**Problem Statement**  
+Copy the introductory example.  The vector `name` stores the extracted names.  
+  
+*Note:  The `name` object was created using the script detailed on page 197 of the text.*
+
+```{r prob3_data}
+raw.data <-"555-1239Moe Szyslak(636) 555-0113Burns, C. Montgomery555-6542Rev. Timothy Lovejoy555 8904Ned Flanders636-555-3226Simpson, Homer5553642Dr. Julius Hibbert"  
+  
+name <- unlist(str_extract_all(raw.data, "[[:alpha:],. ]{2,}"))
+```
+<br> 
+**Part A**  
+Use the tools of this chapter to rearrange the vector so that all elements conform to the standard *first_name last_name.*  
+<br>
+*First, extract first names.*  
+*Note: I assume "C." is a sufficient proxy for Mr. Burn's first name--Charles.*  
+```{r first_name}
+# find string pattern of 1+ alphabetical chars followed by space; or comma, space, 1+ alphabetical chars,  
+# followed by optional period 
+first <- unlist(str_extract_all(name,"([[:alpha:]]+) |, [[:alpha:]]+\\.?"))
+first
+
+# cleanup: we do not need spaces or commas; so only find patterns of alphabetical chars 
+# or periods
+first <- unlist(str_extract_all(first, "[[:alpha:]\\.]+"))
+first
+```
+<br>
+*Now, extract last names:*  
+```{r last_name}
+    
+# find string pattern of alphabetical 1+ chars followed by comma or simply reach end of string.
+# finding first match only to prevent pulling of first name.
+last <- unlist(str_extract(name,"[[:alpha:]]+(,|$)"))
+last
+
+# cleanup:  retain only alphabetical characters
+last <- unlist(str_extract_all(last, "[[:alpha:]]+"))
+last
+```
+<br>
+*Finally, combine results:*  
+```{r first_last}
+# concatenate first and last names
+str_c(first, last, sep=" ")
+```
+<br>
+**Part B**  
+Construct a logical vector indicating whether a character has a tile (i.e. Rev. and Dr.).  
+  
+```{r prob3_b}  
+# assuming all titles in following format:  2+ alpha chars followed by period.
+title <- str_detect(name, "[[:alpha:]]{2,}\\.")
+title
+
+# print names where title vector is true 
+name[title == TRUE]
+```
+<br>
+**Part C**  
+Construct a logical vector indicating whether a character has a second name.  
+  
+```{r prob3_c}
+# count number of words in each string of name object.
+# subtract one from total count if name has title--see code for title object in Part B 
+word_ct <- str_count(name,"\\w+") - title 
+word_ct
+
+# create boolean vector indicating whether name has more than two standard elements (i.e. first and last name).
+second_name <- word_ct > 2
+second_name
+
+# print names where second_name vector is true
+name[second_name == TRUE]
+```
+
+## Problem 4  
+  
+**Problem Statement**  
+Describe the types of strings that conform to the following regular expressions and construct an example that is matched by the regular expressions.  
+<br>
+**Part A**  
+`[0-9]+\\$`  
+  
+This expression matches string patterns comprising one or more digits followed by the dollar sign.  
+See test cases below.  The 2nd, 3rd, and 6th elements of the `test_a` object were intentionally designed to fail to meet expression criteria. 
+
+```{r prob4_a}
+# test cases
+test_a <- c("456dfd845$", "89847", "$afg778jg", "456$", "tye9342$", "to4$5")
+
+unlist(str_extract_all(test_a,"[0-9]+\\$"))
+```
+<br>
+**Part B**  
+`\\b[a-z]{1,4}\\b`
+  
+This expression is designed to match full words comprising between one and four lower-case, alphabetical characters.  
+
+```{r prob4_b}
+# test sentences
+test_b <- "I ate 5 Nathan's dogs in about fifteen minutes.  Now I am sick."
+
+unlist(str_extract_all(test_b, "\\b[a-z]{1,4}\\b"))
+```
+  
+* Note that words beginning with an uppercase letter are excluded, including "I" and "Now".
+* Words over four characters are excluded, including, "fifteen", "about", and "minutes."  
+* The number "5" is also excluded.
+* There is one issue with the expression:  it does not recognize the word "Nathan's" as one word.  Instead, it treats the apostrophe as splitting the characters into separate "Nathan" and "s" components.  Given this limitation, the expression correctly excludes "Nathan" as the word is both over 4 characters and begins with an uppercase letter.  On the other hand, the expression returns "s" as it is both lowercase and less than four characters in length.    
+<br>
+
+**Part C**  
+`".*?\\.txt$"`  
+  
+The expression above matches any string (in its entirely) that ends in ".txt"  The characters preceding ".txt" can be of any length and type.  
+```{r prob4_c}
+# test cases
+test_c <- c(".txt","my123.txt", ".txt.file", "123456", "123.txt", "Quiero .txt", "I need a .txt file", "You need to give me that .txt")
+
+unlist(str_extract_all(test_c, ".*?\\.txt$"))
+```
+<br>
+As expected, all strings ending in ".txt" are extracted, leaving only three strings that are omitted:  "123456", ".txt.file", and "I need a .txt file".  
+<br>
+**Part D**  
+`\\d{2}/\\d{2}/\\d{4}`  
+  
+This expression matches strings with the following pattern:  two digits, followed by "/", then two more digits, followed by another "/", and ending with four digits.  This regex works particular well with dates in the mm/dd/yyy format.  
+  
+```{r prob4_d}
+# test cases
+test_d <- c("01/10/1981", "1/10/1981","01/10/81","01101981", "abc01/10/1981xyz", "01\10\1981")
+
+unlist(str_extract_all(test_d,"\\d{2}/\\d{2}/\\d{4}"))
+```
+
+Only the 3rd and 5th string cases above meet the mm/dd/yyy format, as expected.
+  
+
+**Part E**  
+`"<(.+?)>.+?</\\1>`  
+
+This type of expression is useful for extracting html code.  The expression retrieves the start tag, any text that follows, and the corresponding end tag.  Note: The "+?" characters in the expression indicate that non-greedy matching is used.  
+  
+```{r prob4_e}
+# test cases
+test_e <-c("<b> This is some bold text.</b>.", "<b> This is more </b> bold text</b>", "<b> These tags don't match. </r>")
+
+unlist(str_extract_all(test_e, "<(.+?)>.+?</\\1>"))
+
+```
+  
+* The first case has appropriate start and end tags and is therefore extracted.
+* The second case is not extracted in its entirely because non-greedy matching is employed.  The matches ends at the nearest end tag.
+* The start and end tags don't match in the third example; so the string is not extracted.  
+
+## Problem 9  
+  
+**Problem Statement**  
+The following code hides a secret message.  Crack it with R and regular expressions.  *Hint Some of the characters are more revealing than others!*  
+  
+After multiple trial-and-error iterations, the gobbledygook `snippet` object was decoded as follows:  
+
+```{r prob9}
+snippet <- "clcopCow1zmstc0d87wnkig7OvdicpNuggvhryn92Gjuwczi8hqrfpRxs5Aj5dwpn0TanwoUwisdij7Lj8kpf03AT5Idr3coc0bt7yczjatOaootj55t3Nj3ne6c4Sfek.r1w1YwwojigOd6vrfUrbz2.2bkAnbhzgv4R9i05zEcrop.wAgnb.SqoU65fPa1otfb7wEm24k6t3sR9zqe5fy89n6Nd5t9kc4fE905gmc4Rgxo5nhDk!gr"
+  
+unlist(str_extract_all(snippet,"[A-Z]"))
+```
+
+The message reads:  **"CONGRATULATIONS YOU ARE A SUPER NERD."**
+
+```{r img_play}
+
+myurl <- "https://upload.wikimedia.org/wikipedia/commons/0/08/Nerd_11.jpg"
+download.file(myurl,"nerd.jpg", mode = "wb")
+```
+![Nerd!](nerd.jpg) 
+
+
+
+
+
+
+
+
